@@ -1,0 +1,26 @@
+version: '3'
+services:
+  wg-ubuntu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 51820:51820/udp
+      - 10086:10086/tcp
+    volumes:
+      - ./wg-volume:/wg-volume
+    networks:
+      - wg-networks
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.2'
+          memory: 256M
+    entrypoint: bash -c "wg-quick up wg0 && cd /usr/local/share/wgdashboard/src && ./wgd.sh start && tail -f /dev/null"
+networks:
+  wg-networks:
+    driver: bridge
