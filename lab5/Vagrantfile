@@ -1,0 +1,49 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+$mkcert = <<-SCRIPT
+sudo apt install mkcert -y
+mkcert -install
+
+cd /home/vagrant
+mkdir -p ./nginx/certs
+chown vagrant ./nginx
+
+mkcert -cert-file ./nginx/certs/dns.student.crt -key-file ./nginx/certs/dns.student.key dns.student
+mkcert -cert-file ./nginx/certs/registry.student.crt -key-file ./nginx/certs/registry.student.key registry.student
+SCRIPT
+
+$dns_clear = <<-SCRIPT
+sudo sed -i 's/#DNS=/DNS=127.0.0.1/' /etc/systemd/resolved.conf
+sudo sed -i 's/#DNSStubListener=yes/DNSStubListener=no/' /etc/systemd/resolved.conf
+sudo systemctl restart systemd-resolved
+SCRIPT
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/jammy64"
+
+  config.vm.box_check_update = false
+
+  config.vm.network "public_network"
+
+  config.vm.network "forwarded_port", guest: 53, host: 53
+  config.vm.network "forwarded_port", guest: 80, host: 80
+  config.vm.network "forwarded_port", guest: 443, host: 443
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "4096"
+    vb.cpus = 2
+    vb.check_guest_additions = false
+    vb.customize ["modifyvm", :id, "--nested-hw-virt", "on"]
+  end
+
+  config.vm.provision :docker
+  config.vm.provision :docker_compose
+  
+  config.vm.provision "shell", inline: $mkcert, run: "once"
+  config.vm.provision "file", source: "./app.conf", destination: "~/nginx/conf/app.conf"
+  config.vm.provision "file", source: "./docker-compose.yml", destination: "~/docker-compose.yml"
+  config.vm.provision "file", source: "Dockerfile", destination: "~/Dockerfile"
+  config.vm.provision "file", source: "htpasswd", destination: "~/auth/htpasswd"
+  config.vm.provision "shell", inline: $dns_clear, run: "once"
+end
