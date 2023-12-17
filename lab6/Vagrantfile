@@ -1,0 +1,57 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+$manager_script = <<SCRIPT
+sudo docker swarm init --advertise-addr 172.20.0.10
+sudo docker swarm join-token --quiet worker > /vagrant/worker_token
+SCRIPT
+
+$worker_script = <<SCRIPT
+sudo docker swarm join --token $(cat /vagrant/worker_token) 172.20.0.10
+SCRIPT
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/jammy64"
+  config.vm.box_check_update = false
+  config.vbguest.auto_update = false
+
+  config.vm.define "manager1" do |mgr1|
+    mgr1.vm.network "private_network", ip: "172.20.0.10"
+    mgr1.vm.hostname = "mgr1.local"
+    mgr1.vm.provision :docker
+    mgr1.vm.provision "shell", inline: $manager_script
+
+    mgr1.vm.provider "virtualbox" do |vb|
+      vb.memory = "1024"
+      vb.cpus = 1
+      vb.customize ["modifyvm", :id, "--nested-hw-virt", "on"]
+    end
+  end
+
+  config.vm.define "worker1" do |wrk1|
+    wrk1.vm.network "private_network", ip: "172.20.0.11"
+    wrk1.vm.hostname = "wrk1.local"
+    wrk1.vm.provision :docker   
+    wrk1.vm.provision "shell", inline: $worker_script
+
+
+    wrk1.vm.provider "virtualbox" do |vb|
+      vb.memory = "1024"
+      vb.cpus = 1
+      vb.customize ["modifyvm", :id, "--nested-hw-virt", "on"]
+    end
+  end
+
+  config.vm.define "worker2" do |wrk2|
+    wrk2.vm.network "private_network", ip: "172.20.0.12"
+    wrk2.vm.hostname = "wrk2.local"
+    wrk2.vm.provision :docker
+    wrk2.vm.provision "shell", inline: $worker_script
+
+    wrk2.vm.provider "virtualbox" do |vb|
+      vb.memory = "1024"
+      vb.cpus = 1
+      vb.customize ["modifyvm", :id, "--nested-hw-virt", "on"]
+    end
+  end
+end
