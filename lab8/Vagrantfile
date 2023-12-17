@@ -1,0 +1,24 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+$get_ziglang = <<SCRIPT
+sudo docker pull kassany/ziglang
+SCRIPT
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/jammy64"
+
+  config.vm.box_check_update = false
+  config.vbguest.auto_update = false
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "2048"
+    vb.customize ["modifyvm", :id, "--nested-hw-virt", "on"]
+  end
+
+  config.vm.hostname = "delta"
+
+  config.vm.provision :docker
+  config.vm.provision :docker_compose
+  config.vm.provision "shell", inline: $get_ziglang
+end
