@@ -1,4 +1,4 @@
 reports/template.pdf
 **/.vagrant
 lab5/rootCA.pem
-lab6/worker_token
+lab[67]/worker_token

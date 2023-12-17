@@ -1,0 +1,11 @@
+services:
+  visualizer:
+    image: dockersamples/visualizer
+    ports:
+      - "1101:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == manager1

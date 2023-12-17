@@ -1,0 +1,60 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+$manager_script = <<SCRIPT
+docker swarm init --advertise-addr 172.20.0.10
+docker swarm join-token --quiet worker > /vagrant/worker_token
+SCRIPT
+
+$deploy = <<SCRIPT
+docker stack deploy -c visualizer.yml visualizer
+docker stack deploy -c portainer.yml portainer
+docker stack deploy -c web.yml web
+SCRIPT
+
+$worker_script = <<SCRIPT
+docker swarm join --token $(cat /vagrant/worker_token) 172.20.0.10
+SCRIPT
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/jammy64"
+  config.vm.box_check_update = false
+  config.vbguest.auto_update = false
+
+  config.vm.define "manager1" do |mgr1|
+    mgr1.vm.network "private_network", ip: "172.20.0.10"
+    mgr1.vm.network "forwarded_port", guest: 1101, host: 1101
+    mgr1.vm.network "forwarded_port", guest: 1102, host: 1102
+    mgr1.vm.network "forwarded_port", guest: 1103, host: 1103
+    mgr1.vm.hostname = "manager1.local"
+    
+    # NOTE: $deploy is not used, but can be
+    mgr1.vm.provision :docker
+    mgr1.vm.provision "shell", inline: $manager_script
+    mgr1.vm.provision "file", source: "visualizer.yml", destination: "/home/vagrant/visualizer.yml"
+    mgr1.vm.provision "file", source: "portainer.yml", destination: "/home/vagrant/portainer.yml"
+    mgr1.vm.provision "file", source: "web.yml", destination: "/home/vagrant/web.yml"
+
+    mgr1.vm.provider "virtualbox" do |vb|
+      vb.memory = "1024"
+      vb.cpus = 1
+      vb.customize ["modifyvm", :id, "--nested-hw-virt", "on"]
+    end
+  end
+
+  # NOTE: ip forming should be changed if using >9 vms
+  (1..2).each do |i|
+    config.vm.define "worker#{i}" do |wrk|
+      wrk.vm.network "private_network", ip: "172.20.0.1#{i}"
+      wrk.vm.hostname = "worker#{i}.local"
+      wrk.vm.provision :docker
+      wrk.vm.provision "shell", inline: $worker_script
+
+      wrk.vm.provider "virtualbox" do |vb|
+        vb.memory = "1024"
+        vb.cpus = 1
+        vb.customize ["modifyvm", :id, "--nested-hw-virt", "on"]
+      end
+    end
+  end
+end
